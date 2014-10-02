@@ -48,10 +48,10 @@ describe XingApi::Client do
   describe '#request' do
     subject { described_class.new }
 
-    def set_expectaction(verb, url, body='{}')
-      response_stub = stub(:code => 200, :body => body)
+    def set_expectaction(*params)
+      response_stub = stub(:code => 200, :body => params.first.is_a?(String) && params.shift || '{}')
       token_stub = mock do
-        expects(:request).with(verb, url).returns(response_stub)
+        expects(:request).with(*params).returns(response_stub)
       end
       subject.stubs(:access_token).returns(token_stub)
     end
@@ -68,8 +68,40 @@ describe XingApi::Client do
       subject.request(:get, '/v1/some_resource/123', :param => 'some text & more')
     end
 
+    it 'passes verb, url, and params as query_string to the access_token' do
+      set_expectaction(:get, '/v1/some_resource/123?param1=1&param2=foobar')
+
+      subject.request(:get, '/v1/some_resource/123', params: { param1: 1, param2: 'foobar' })
+    end
+
+    it 'passes :post verb, url, params, body, and headers to the access_token' do
+      set_expectaction(:post, '/v1/some_resource/123?param1=1&param2=foobar', 'body', { header1: 'foobar', header2: 2 })
+
+      subject.request(:post, '/v1/some_resource/123', params: { param1: 1, param2: 'foobar' }, body: 'body',
+                                                      headers: { header1: 'foobar', header2: 2 })
+    end
+
+    it 'passes :put verb, url, params, body, and headers to the access_token' do
+      set_expectaction(:put, '/v1/some_resource/123?param1=1&param2=foobar', 'body', { header1: 'foobar', header2: 2 })
+
+      subject.request(:put, '/v1/some_resource/123', params: { param1: 1, param2: 'foobar' }, body: 'body',
+                                                     headers: { header1: 'foobar', header2: 2 })
+    end
+
+    it 'passes verb, url, and headers to the access_token without requiring a body' do
+      set_expectaction(:post, '/v1/some_resource/123', nil, { header1: 'foobar', header2: 2 })
+
+      subject.request(:post, '/v1/some_resource/123', headers: { header1: 'foobar', header2: 2 })
+    end
+
+    it 'does not pass a body to the access_token for :get requests' do
+      set_expectaction(:get, '/v1/some_resource/123', { header1: 'foobar', header2: 2 })
+
+      subject.request(:get, '/v1/some_resource/123', headers: { header1: 'foobar', header2: 2 })
+    end
+
     it 'parses the response' do
-      set_expectaction(:get, '/v1/some_resource', '{"some": "content"}')
+      set_expectaction('{"some": "content"}', :get, '/v1/some_resource')
 
       expect(subject.request(:get, '/v1/some_resource')).to eql({:some => 'content'})
     end

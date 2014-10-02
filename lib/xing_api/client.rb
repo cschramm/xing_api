@@ -24,8 +24,14 @@ module XingApi
     end
 
     def request(http_verb, url, options={})
-      full_url = url + hash_to_params(options)
-      handle(access_token.request(http_verb, full_url))
+      legacy = options.keys.none? do |key|
+        [:params, :headers, :body].include? key
+      end
+      params = legacy && options || options[:params] || {}
+      full_url = url + hash_to_params(params)
+      arguments = options[:headers] && [options[:headers]] || []
+      arguments.unshift options[:body] if [:post, :put].include? http_verb
+      handle(access_token.request(http_verb, full_url, *arguments))
     end
 
     def get_request_token(oauth_callback='oob')
